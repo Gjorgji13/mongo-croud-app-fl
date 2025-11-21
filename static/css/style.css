@@ -1,0 +1,32 @@
+/* Card hover */
+.subject-card:hover, .avg-card:hover, .progress-card:hover {
+    transform: translateY(-4px);
+    transition: 0.2s ease-in-out;
+}
+
+/* Average grade styling */
+.avg-value {
+    font-size: 2rem;
+    font-weight: bold;
+}
+.avg-value::before {
+    content: '🎓 ';
+}
+
+/* Grade colors */
+.grade-text {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+.grade-text::before {
+    content: "🟢 ";
+}
+.grade-text[data-grade="medium"]::before { content: "🟡 "; }
+.grade-text[data-grade="low"]::before { content: "🟠 "; }
+
+/* Progress bar styling */
+.progress-bar {
+    background: linear-gradient(90deg, #4ade80, #22d3ee);
+    font-weight: bold;
+    color: #fff;
+}

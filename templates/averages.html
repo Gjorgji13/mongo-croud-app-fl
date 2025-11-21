@@ -1,0 +1,15 @@
+<h1>Average Grades</h1>
+
+<table border="1">
+    <tr>
+        <th>Student</th>
+        <th>Average Grade</th>
+    </tr>
+
+    {% for r in results %}
+    <tr>
+        <td>{{ r._id }}</td>
+        <td>{{ r.average|round(2) }}</td>
+    </tr>
+    {% endfor %}
+</table>

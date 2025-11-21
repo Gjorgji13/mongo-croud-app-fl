@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ student.name }} – Subjects</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .grade-high { color: #198754; font-weight: bold; }   /* 9–10 */
+        .grade-medium { color: #ffc107; font-weight: bold; } /* 7–8.99 */
+        .grade-low { color: #dc3545; font-weight: bold; }    /* 6–6.99 */
+        .subject-card { border-radius: 0.5rem; transition: transform 0.2s, box-shadow 0.2s; }
+        .subject-card:hover { transform: translateY(-3px); box-shadow: 0 0.4rem 0.8rem rgba(0, 0, 0, 0.1); }
+        .required-grade { font-size: 1.5rem; font-weight: bold; }
+    </style>
+</head>
+
+<body class="container mt-5 bg-light">
+
+<div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+    <h1 class="text-primary">Subjects – {{ student.name }}</h1>
+    <a href="/" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 mb-5">
+
+    <div class="col">
+        <div class="card text-center shadow-sm h-100 border-{{ 'success' if avg >= 9 else 'warning' if avg >= 7 else 'danger' }}">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Current Average Grade</h6>
+                <h2 class="card-text
+                    {% if avg >= 9 %}grade-high{% elif avg >= 7 %}grade-medium{% elif avg >= 6 %}grade-low{% else %}text-secondary{% endif %}">
+                    {{ avg|default('N/A')|round(2) }}
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card text-center shadow-sm h-100 border-info">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Required Grade to Reach {{ target_avg|round(1) }}</h6>
+                <p class="required-grade text-info">
+                    {% if required_grade is none %}
+                        <span class="text-danger">Impossible</span>
+                    {% else %}
+                        {{ required_grade }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card text-center shadow-sm h-100 border-secondary">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Predicted Next Grade (Linear Trend)</h6>
+                <p class="required-grade text-secondary" id="predictionResult">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Loading...
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card text-center shadow-sm h-100 border-secondary">
+            <div class="card-body d-flex flex-column justify-content-center">
+                <h6 class="card-title text-muted mb-3">Export Data</h6>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('export_student', student_id=student._id, fmt='csv') }}" class="btn btn-sm btn-outline-dark">CSV</a>
+                    <a href="{{ url_for('export_student', student_id=student._id, fmt='xlsx') }}" class="btn btn-sm btn-outline-dark">XLSX</a>
+                    <a href="{{ url_for('export_student', student_id=student._id, fmt='pdf') }}" class="btn btn-sm btn-outline-dark">PDF</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-4">
+
+    <div class="col-lg-7">
+        <div class="card shadow-lg p-3">
+            <h4 class="card-title mb-3">Subjects List</h4>
+            <div class="d-flex justify-content-between mb-3">
+                <form class="d-flex flex-grow-1 me-2" action="{{ url_for('student_page', id=student._id) }}" method="GET">
+                    <input class="form-control me-2" type="search" placeholder="Search subject..." name="search" value="{{ search|default('') }}">
+                    <button class="btn btn-outline-primary" type="submit">Search</button>
+                </form>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        Sort: {{ sort|default('Name')|capitalize }}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('student_page', id=student._id, sort='subject') }}">Subject Name</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('student_page', id=student._id, sort='grade') }}">Grade</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('student_page', id=student._id, sort='date_added') }}">Date Added</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <form action="{{ url_for('student_page', id=student._id) }}" method="POST" class="d-flex mb-4 p-3 bg-light rounded shadow-sm">
+                <input type="text" name="subject_name" class="form-control me-2" placeholder="Subject Name" required>
+                <input type="number" name="grade" class="form-control me-2" placeholder="Grade (6-10)" min="6" max="10" required>
+                <button type="submit" class="btn btn-success text-nowrap">Add Subject</button>
+            </form>
+
+            {% for s in subjects %}
+            <div class="card subject-card mb-2 border-start border-4 border-{{ 'success' if s.grade >= 9 else 'warning' if s.grade >= 7 else 'danger' }}">
+                <div class="card-body d-flex justify-content-between align-items-center p-3">
+                    <div>
+                        <h5 class="mb-1">{{ s.subject }}
+                            {% if s.subject in weak_subjects %}
+                                <span class="badge bg-danger">Low Grade</span>
+                            {% endif %}
+                        </h5>
+                        <p class="mb-0 text-muted small">Date: {{ s.date_added.strftime('%Y-%m-%d') if s.date_added else 'N/A' }}</p>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="fs-4 me-3
+                            {% if s.grade >= 9 %}grade-high{% elif s.grade >= 7 %}grade-medium{% else %}grade-low{% endif %}">
+                            {{ s.grade|round(0) }}
+                        </span>
+                        <button class="btn btn-sm btn-outline-warning me-2" data-bs-toggle="modal" data-bs-target="#editSubjectModal{{ loop.index }}">Edit</button>
+                        <a href="{{ url_for('delete_subject', student_id=student._id, subject_id=s._id) }}"
+                           onclick="return confirm('Are you sure you want to delete the subject {{ s.subject }}?')"
+                           class="btn btn-sm btn-outline-danger">Delete</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="editSubjectModal{{ loop.index }}" tabindex="-1" aria-labelledby="editSubjectModalLabel{{ loop.index }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form class="modal-content" method="POST" action="{{ url_for('edit_subject', student_id=student._id, subject_id=s._id) }}">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editSubjectModalLabel{{ loop.index }}">Edit Subject: {{ s.subject }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label>Subject Name:</label>
+                            <input name="new_name" class="form-control mb-2" value="{{ s.subject }}" required>
+                            <label>Grade (6-10):</label>
+                            <input name="new_grade" type="number" class="form-control" value="{{ s.grade }}" min="6" max="10" required>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% endfor %}
+
+            {% if not subjects %}
+                <div class="alert alert-info text-center" role="alert">
+                    No subjects added yet.
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-lg h-100">
+            <div class="card-body">
+                <h5 class="card-title text-center text-secondary mb-3">Grade Distribution by Subject</h5>
+                <div class="p-3">
+                    <canvas id="gradeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Chart.js Configuration
+    new Chart(document.getElementById("gradeChart"), {
+        type: "bar",
+        data: {
+            labels: [{% for s in subjects %}'{{ s.subject }}',{% endfor %}],
+            datasets: [{
+                label: "Grade",
+                data: [{% for s in subjects %}{{ s.grade }},{% endfor %}],
+                backgroundColor: [
+                    {% for s in subjects %}
+                        {% if s.grade >= 9 %}'rgba(25, 135, 84, 0.7)',
+                        {% elif s.grade >= 7 %}'rgba(255, 193, 7, 0.7)',
+                        {% else %}'rgba(220, 53, 69, 0.7)',
+                        {% endif %}
+                    {% endfor %}
+                ],
+                borderColor: [
+                    {% for s in subjects %}
+                        {% if s.grade >= 9 %}'rgb(25, 135, 84)',
+                        {% elif s.grade >= 7 %}'rgb(255, 193, 7)',
+                        {% else %}'rgb(220, 53, 69)',
+                        {% endif %}
+                    {% endfor %}
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Grades per Subject'
+                }
+            }
+        }
+    });
+
+    // Fetch Grade Prediction
+    document.addEventListener('DOMContentLoaded', function() {
+        const predictionElement = document.getElementById('predictionResult');
+        // FIX: Changed 'predict_grade' to 'predict' based on Flask's suggestion and standard naming conventions
+        fetch("{{ url_for('predict', student_id=student._id) }}")
+            .then(response => response.json())
+            .then(data => {
+                if (data.prediction !== undefined && data.prediction !== null) {
+                    predictionElement.innerHTML = parseFloat(data.prediction).toFixed(2);
+                    predictionElement.classList.add('text-success');
+                } else {
+                    predictionElement.innerHTML = 'N/A';
+                    predictionElement.classList.add('text-muted');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching prediction:', error);
+                predictionElement.innerHTML = 'Error';
+                predictionElement.classList.add('text-danger');
+            });
+    });
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
